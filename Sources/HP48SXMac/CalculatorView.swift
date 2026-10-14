@@ -7,9 +7,11 @@ final class CalculatorView: NSView {
     private var redrawTimer: Timer?
     private var pressedKeyCode: Int32?
 
-    // Colors ported verbatim from HPView: func line, central/menu-key
-    // background, LCD green.
-    private let funcColor = NSColor(calibratedRed: 83/255, green: 81/255, blue: 82/255, alpha: 1)
+    // Colors ported verbatim from HPView: central/menu-key background,
+    // LCD green. (HPView also draws a "func line" rect, but its own
+    // drawRect(0, start_h, w, start_h) call has top == bottom -- a
+    // zero-height no-op that never actually renders -- so it's omitted
+    // here rather than ported as a visible rect.)
     private let centralColor = NSColor(calibratedRed: 57/255, green: 57/255, blue: 56/255, alpha: 1)
     private let lcdGreen = NSColor(calibratedRed: 189/255, green: 195/255, blue: 165/255, alpha: 1)
 
@@ -37,26 +39,19 @@ final class CalculatorView: NSView {
         centralColor.setFill()
         bounds.fill()
 
-        funcColor.setFill()
-        NSRect(x: 0, y: KeyLayout.lcdRect.maxY, width: bounds.width, height: bounds.height - KeyLayout.lcdRect.maxY).fill()
-
         lcdGreen.setFill()
-        KeyLayout.lcdRect.fill()
+        KeyLayout.flipped(KeyLayout.lcdRect, inHeight: bounds.height).fill()
 
         drawLCDBitmap()
 
         for (i, rect) in KeyLayout.keyRects.enumerated() where rect.width > 0 {
-            // AppKit's coordinate origin is bottom-left; KeyLayout is
-            // authored top-left (matching HPView/Android), so flip y.
-            let flipped = NSRect(x: rect.minX, y: bounds.height - rect.maxY, width: rect.width, height: rect.height)
-            keyImages[i].draw(in: flipped)
+            keyImages[i].draw(in: KeyLayout.flipped(rect, inHeight: bounds.height))
         }
 
         if let frame = bridge.latestFrame() {
             for (i, on) in frame.annunciators.enumerated() where on {
                 let r = KeyLayout.iconRects[i]
-                let flipped = NSRect(x: r.minX, y: bounds.height - r.maxY, width: r.width, height: r.height)
-                annunciatorImages[i].draw(in: flipped)
+                annunciatorImages[i].draw(in: KeyLayout.flipped(r, inHeight: bounds.height))
             }
         }
     }
@@ -88,9 +83,7 @@ final class CalculatorView: NSView {
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
         ) else { return }
 
-        let flipped = NSRect(x: KeyLayout.lcdRect.minX, y: bounds.height - KeyLayout.lcdRect.maxY,
-                              width: KeyLayout.lcdRect.width, height: KeyLayout.lcdRect.height)
-        NSGraphicsContext.current?.cgContext.draw(cgImage, in: flipped)
+        NSGraphicsContext.current?.cgContext.draw(cgImage, in: KeyLayout.flipped(KeyLayout.lcdRect, inHeight: bounds.height))
     }
 }
 

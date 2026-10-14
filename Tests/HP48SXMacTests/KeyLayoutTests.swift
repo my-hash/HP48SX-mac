@@ -48,6 +48,22 @@ final class KeyLayoutTests: XCTestCase {
         XCTAssertNil(KeyLayout.keyIndex(at: CGPoint(x: -10, y: -10)))
     }
 
+    func testFlippedMovesTheLCDRectToTheTopOfTheView() {
+        // CalculatorView draws lcdGreen with the raw (top-left-authored)
+        // lcdRect directly, never flipping it into AppKit's bottom-left
+        // coordinate space the way keyRects/iconRects already are. Since
+        // lcdRect.minY == 0 (flush against the top in top-left terms),
+        // the un-flipped fill lands flush against the BOTTOM of the
+        // AppKit view instead -- a green slab inside the keypad, while
+        // the real LCD area (where drawLCDBitmap's own, correctly
+        // flipped rect draws) stays whatever color was painted under it.
+        let height = KeyLayout.contentSize.height
+        let flipped = KeyLayout.flipped(KeyLayout.lcdRect, inHeight: height)
+        XCTAssertEqual(flipped.maxY, height, accuracy: 0.5, "a rect flush against the top in top-left coordinates must be flush against the top in AppKit's bottom-left space too")
+        XCTAssertEqual(flipped.height, KeyLayout.lcdRect.height, accuracy: 0.01, "flipping must not change the rect's size")
+        XCTAssertEqual(flipped.minX, KeyLayout.lcdRect.minX, accuracy: 0.01, "flipping must not change the rect's horizontal position")
+    }
+
     func testEveryKeyRectLiesWithinTheWindow() {
         // Final-review Critical finding C1: keys 25-28 and 29-48 used the
         // wrong row multiplier and rendered one (25-28) to three (29-48)

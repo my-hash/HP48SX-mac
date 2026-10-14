@@ -81,4 +81,11 @@ enum KeyLayout {
     static func keyIndex(at point: CGPoint) -> Int? {
         keyRects.firstIndex { $0.contains(point) }
     }
+
+    /// Every rect above is authored top-left (matching HPView/Android),
+    /// but AppKit's view coordinate space is bottom-left. CalculatorView
+    /// uses this to convert before drawing.
+    static func flipped(_ rect: CGRect, inHeight height: CGFloat) -> CGRect {
+        CGRect(x: rect.minX, y: height - rect.maxY, width: rect.width, height: rect.height)
+    }
 }
