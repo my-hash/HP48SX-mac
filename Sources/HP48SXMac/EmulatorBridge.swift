@@ -18,6 +18,23 @@ final class EmulatorBridge {
     private let frameLock = NSLock()
     private var frame: (screen: [UInt16], annunciators: [Bool])?
 
+    /// Counts how many times the outer repeat-while loop has called
+    /// debug() -- i.e. how many times emulate()/emulate_debug() has
+    /// returned early and been retried. Zero for the entire normal
+    /// session (emulate() only returns on a fault or exit_state == 0);
+    /// test-only visibility into whether a fault was actually recovered
+    /// from, without racing an oscillating C global (see
+    /// CrashRecoveryTests for why that polling approach doesn't work).
+    /// Locked (not just a plain var) because it's written on the emulate
+    /// thread and read from tests on a different thread.
+    private let debugLoopIterationsLock = NSLock()
+    private var _debugLoopIterations = 0
+    var debugLoopIterations: Int {
+        debugLoopIterationsLock.lock()
+        defer { debugLoopIterationsLock.unlock() }
+        return _debugLoopIterations
+    }
+
     init(paths: AppPaths = .standard) {
         self.paths = paths
     }
@@ -47,8 +64,27 @@ final class EmulatorBridge {
         init_active_stuff()
 
         exit_state = 1
-        let emuThread = Thread {
-            if exec_flags == 0 { _ = emulate() } else { _ = emulate_debug() }
+        let emuThread = Thread { [weak self] in
+            // Matches upstream's main loop exactly:
+            // do { emulate()/emulate_debug(); debug(); } while (exit_state).
+            // emulate() returns early when enter_debugger goes non-zero
+            // (an illegal instruction or TRAP -- see its own loop
+            // condition, "while (!enter_debugger && exit_state)"); debug()
+            // (useDebugger is 0 by default, confirmed -- no task ever
+            // turns the interactive debugger on) recovers by resetting PC
+            // to 0 and clearing enter_debugger, and the loop continues.
+            // Calling emulate() exactly once with no outer loop meant any
+            // illegal instruction permanently ended this thread, freezing
+            // the calculator until relaunch.
+            repeat {
+                if exec_flags == 0 { _ = emulate() } else { _ = emulate_debug() }
+                _ = debug()
+                if let self {
+                    self.debugLoopIterationsLock.lock()
+                    self._debugLoopIterations += 1
+                    self.debugLoopIterationsLock.unlock()
+                }
+            } while exit_state != 0
         }
         emuThread.name = "HP48SXMac.emulate"
         emuThread.start()

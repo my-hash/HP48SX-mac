@@ -12,6 +12,7 @@
 extern char config_dir[1024];
 extern int  exec_flags;
 extern int  exit_state;
+extern int  enter_debugger;
 
 int  init_emulator(void);
 void init_active_stuff(void);
@@ -38,5 +39,6 @@ int  emu_fill_screen_data(unsigned short *out, unsigned char *ann_out);
 
 /* Test-only: see globals.c. */
 int emu_debug_mem_cntl_unconfigured(int index);
+void emu_debug_trigger_illegal_instruction(void);
 
 #endif

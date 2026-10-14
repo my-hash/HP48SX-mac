@@ -94,3 +94,10 @@ int
 emu_debug_mem_cntl_unconfigured(int index) {
 	return saturn.mem_cntl[index].unconfigured;
 }
+
+/* Test-only: forces emulate()'s "while (!enter_debugger && exit_state)"
+ * loop to return early, the same way a real illegal instruction would. */
+void
+emu_debug_trigger_illegal_instruction(void) {
+	enter_debugger = 2; /* ILLEGAL_INSTRUCTION, debugger.h */
+}
