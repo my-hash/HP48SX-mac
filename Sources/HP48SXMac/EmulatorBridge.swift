@@ -142,10 +142,20 @@ final class EmulatorBridge {
     }
 
     func loadObject(at url: URL) -> Bool {
-        url.withUnsafeFileSystemRepresentation { ptr -> Bool in
+        let ok = url.withUnsafeFileSystemRepresentation { ptr -> Bool in
             guard let ptr else { return false }
             return read_bin_file(UnsafeMutablePointer(mutating: ptr)) == 1
         }
+        if ok {
+            // Matches HPView.pressON(), called by X48.loadObject()/
+            // loadDocObject() on success: the loaded object sits on the
+            // RPL stack but the display never shows it without this --
+            // Load Object would otherwise silently appear to do nothing.
+            pressKey(44, down: true)
+            Thread.sleep(forTimeInterval: 0.2)
+            pressKey(44, down: false)
+        }
+        return ok
     }
 
     func latestFrame() -> (screen: [UInt16], annunciators: [Bool])? {
