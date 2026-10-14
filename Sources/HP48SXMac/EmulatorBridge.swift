@@ -25,6 +25,7 @@ final class EmulatorBridge {
     func start() {
         guard emulateThread == nil else { return }
 
+        try? paths.ensureFirstRunAssets()
         emu_set_config_dir(paths.configDirPath)
         if init_emulator() == 0 {
             // Fresh/placeholder state file didn't parse; reset to a known-good state.
