@@ -62,6 +62,11 @@ final class SmokeTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.1) // let the loop notice and return
 
         XCTAssertEqual(got, 1, "emu_fill_screen_data should report a fresh frame")
-        XCTAssertTrue(buf.contains { $0 != 0 }, "screen buffer should not be all zero after boot")
+        // A single stray non-zero pixel would pass "contains { $0 != 0 }"
+        // even for a boot that's still basically all garbage/blank; a real
+        // post-boot screen (menu text, icon strip) fills a real fraction
+        // of the buffer.
+        let nonZeroCount = buf.filter { $0 != 0 }.count
+        XCTAssertGreaterThan(nonZeroCount, buf.count / 20, "at least 5% of the screen buffer should be non-zero after a real boot, not just a stray pixel")
     }
 }

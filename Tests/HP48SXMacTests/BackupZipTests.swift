@@ -27,13 +27,22 @@ final class BackupZipTests: XCTestCase {
     }
 
     func testRestoreRejectsZipMissingRequiredMembers() throws {
+        // "notes.txt" isn't one of BackupZip's recognized members, so
+        // save() would zip nothing at all for it (present filters it out),
+        // and /usr/bin/zip with no file arguments never creates the
+        // destination -- this test would then only be exercising "restore
+        // a zip that doesn't exist," not "reject a zip that's missing the
+        // required members." Use "port1" instead: a real recognized
+        // member, but not one of the required ones, so the zip genuinely
+        // gets created and restore()'s own validation is what has to reject it.
         let fm = FileManager.default
         let emptyDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try fm.createDirectory(at: emptyDir, withIntermediateDirectories: true)
-        try "unrelated".data(using: .utf8)!.write(to: emptyDir.appendingPathComponent("notes.txt"))
+        try "portdata".data(using: .utf8)!.write(to: emptyDir.appendingPathComponent("port1"))
 
         let zipPath = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".zip")
-        try BackupZip.save(configDir: emptyDir, to: zipPath) // zips just notes.txt
+        try BackupZip.save(configDir: emptyDir, to: zipPath)
+        XCTAssertTrue(fm.fileExists(atPath: zipPath.path), "setup: the zip should have been created with port1 inside")
 
         let restoreDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try fm.createDirectory(at: restoreDir, withIntermediateDirectories: true)

@@ -75,15 +75,24 @@ final class CalculatorView: NSView {
         }
 
         guard let provider = CGDataProvider(data: Data(rgbaBuffer) as CFData) else { return }
+        // shouldInterpolate: true, matching Android's own default bilinear
+        // bitmap filtering. The destination rect's height (headerHeightUnit
+        // * ratio, preserved exactly from upstream's own start_h constant
+        // -- see the design spec's Dimensions section) is a few points
+        // taller than this bitmap's real 142-row height, so an unfiltered
+        // draw shows uneven, jagged pixel rows; Android hides the same
+        // mismatch with filtering rather than changing its own start_h.
         guard let cgImage = CGImage(
             width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
             bytesPerRow: width * 4,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+            provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
         ) else { return }
 
-        NSGraphicsContext.current?.cgContext.draw(cgImage, in: KeyLayout.flipped(KeyLayout.lcdRect, inHeight: bounds.height))
+        let context = NSGraphicsContext.current?.cgContext
+        context?.interpolationQuality = .high
+        context?.draw(cgImage, in: KeyLayout.flipped(KeyLayout.lcdRect, inHeight: bounds.height))
     }
 }
 

@@ -136,10 +136,6 @@ final class EmulatorBridge {
         pollThread = nil
     }
 
-    func reset() {
-        do_reset()
-    }
-
     func save() {
         _ = write_files()
     }
