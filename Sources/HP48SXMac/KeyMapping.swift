@@ -39,3 +39,20 @@ enum KeyMapping {
         }
     }
 }
+
+/// Tracks which HP48 key code is currently held for each physical
+/// keyboard key (NSEvent.keyCode), so a key-up always releases the same
+/// code its key-down pressed -- even if the key's *produced characters*
+/// would now map differently (e.g. Shift released a moment before a
+/// shift-dependent character's own key-up fires).
+final class HeldKeyTracker {
+    private var held: [UInt16: Int32] = [:]
+
+    func press(physicalKeyCode: UInt16, logicalCode: Int32) {
+        held[physicalKeyCode] = logicalCode
+    }
+
+    func release(physicalKeyCode: UInt16) -> Int32? {
+        held.removeValue(forKey: physicalKeyCode)
+    }
+}

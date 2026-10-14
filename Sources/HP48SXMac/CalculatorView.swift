@@ -6,6 +6,8 @@ final class CalculatorView: NSView {
     private var annunciatorImages: [NSImage] = []
     private var redrawTimer: Timer?
     private var pressedKeyCode: Int32?
+    private let heldKeys = HeldKeyTracker()
+    private var pressedKeys: Set<Int32> = []
 
     // Colors ported verbatim from HPView: central/menu-key background,
     // LCD green. (HPView also draws a "func line" rect, but its own
@@ -46,6 +48,11 @@ final class CalculatorView: NSView {
 
         for (i, rect) in KeyLayout.keyRects.enumerated() where rect.width > 0 {
             keyImages[i].draw(in: KeyLayout.flipped(rect, inHeight: bounds.height))
+        }
+
+        NSColor.white.withAlphaComponent(0.35).setFill()
+        for code in pressedKeys where KeyLayout.keyRects.indices.contains(Int(code)) {
+            KeyLayout.flipped(KeyLayout.keyRects[Int(code)], inHeight: bounds.height).fill()
         }
 
         if let frame = bridge.latestFrame() {
@@ -103,25 +110,41 @@ extension CalculatorView {
         let p = convertToTopLeft(event.locationInWindow)
         guard let code = KeyLayout.keyIndex(at: p) else { return }
         pressedKeyCode = Int32(code)
+        pressedKeys.insert(Int32(code))
         bridge.pressKey(Int32(code), down: true)
+        setNeedsDisplay(bounds)
     }
 
     override func mouseUp(with event: NSEvent) {
         guard let code = pressedKeyCode else { return }
         bridge.pressKey(code, down: false)
+        pressedKeys.remove(code)
         pressedKeyCode = nil
+        setNeedsDisplay(bounds)
     }
 
     override func keyDown(with event: NSEvent) {
+        // Cmd+letter is a standard app shortcut (even one with no menu
+        // item bound, e.g. Cmd+C/Cmd+V), never a calculator keystroke.
+        // Key repeat would otherwise queue an extra pressKey(down: true)
+        // on every repeat tick while a key is held -- the emulator does
+        // its own repeat handling once a key is down.
+        guard !event.modifierFlags.contains(.command), !event.isARepeat else { return }
         guard let code = KeyMapping.code(forCharacters: event.charactersIgnoringModifiers ?? "")
             ?? specialKeyCode(for: event) else { return }
+        heldKeys.press(physicalKeyCode: event.keyCode, logicalCode: code)
+        pressedKeys.insert(code)
         bridge.pressKey(code, down: true)
+        setNeedsDisplay(bounds)
     }
 
     override func keyUp(with event: NSEvent) {
-        guard let code = KeyMapping.code(forCharacters: event.charactersIgnoringModifiers ?? "")
-            ?? specialKeyCode(for: event) else { return }
+        // Release whatever code THIS physical key was pressed with, not
+        // whatever its characters currently map to -- see HeldKeyTracker.
+        guard let code = heldKeys.release(physicalKeyCode: event.keyCode) else { return }
         bridge.pressKey(code, down: false)
+        pressedKeys.remove(code)
+        setNeedsDisplay(bounds)
     }
 
     private func specialKeyCode(for event: NSEvent) -> Int32? {
