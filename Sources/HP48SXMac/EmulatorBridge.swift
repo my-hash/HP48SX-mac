@@ -62,6 +62,13 @@ final class EmulatorBridge {
         // saved session (confirmed: a relaunch lost the RPL stack).
         _ = init_emulator()
         init_active_stuff()
+        // Matches HPView's constructor calling x48.setBlankColor with
+        // contrast "1" (the real default -- nothing here ever sets a
+        // different value): contrast_factor 0.5 -> (23<<11)+(48<<5)+20 =
+        // 0xBE14. Without this, the icon strip (disp_buf_header_short)
+        // stays all-zero/black, so the annunciator icons are invisible
+        // and the LCD background is the wrong color.
+        emu_set_blank_color(0xBE14)
 
         exit_state = 1
         let emuThread = Thread { [weak self] in
