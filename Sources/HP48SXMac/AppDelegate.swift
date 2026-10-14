@@ -3,6 +3,7 @@ import Cocoa
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     let bridge = EmulatorBridge()
+    var preferencesWindowController: PreferencesWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         bridge.start()
@@ -31,12 +32,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        bridge.save()
+        if UserDefaults.standard.bool(forKey: "saveOnExit", defaultValue: true) {
+            bridge.save()
+        }
         bridge.stop()
     }
 }
 
 extension AppDelegate {
+    @objc func showPreferences() {
+        if preferencesWindowController == nil {
+            preferencesWindowController = PreferencesWindowController()
+        }
+        preferencesWindowController?.showWindow(nil)
+        preferencesWindowController?.window?.makeKeyAndOrderFront(nil)
+    }
+
     @objc func loadObject() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
