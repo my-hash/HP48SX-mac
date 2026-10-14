@@ -5,6 +5,7 @@ final class CalculatorView: NSView {
     private var keyImages: [NSImage] = []
     private var annunciatorImages: [NSImage] = []
     private var redrawTimer: Timer?
+    private var pressedKeyCode: Int32?
 
     // Colors ported verbatim from HPView: func line, central/menu-key
     // background, LCD green.
@@ -90,5 +91,50 @@ final class CalculatorView: NSView {
         let flipped = NSRect(x: KeyLayout.lcdRect.minX, y: bounds.height - KeyLayout.lcdRect.maxY,
                               width: KeyLayout.lcdRect.width, height: KeyLayout.lcdRect.height)
         NSGraphicsContext.current?.cgContext.draw(cgImage, in: flipped)
+    }
+}
+
+extension CalculatorView {
+    override var acceptsFirstResponder: Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        let p = convertToTopLeft(event.locationInWindow)
+        guard let code = KeyLayout.keyIndex(at: p) else { return }
+        pressedKeyCode = Int32(code)
+        bridge.pressKey(Int32(code), down: true)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard let code = pressedKeyCode else { return }
+        bridge.pressKey(code, down: false)
+        pressedKeyCode = nil
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard let code = KeyMapping.code(forCharacters: event.charactersIgnoringModifiers ?? "")
+            ?? specialKeyCode(for: event) else { return }
+        bridge.pressKey(code, down: true)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        guard let code = KeyMapping.code(forCharacters: event.charactersIgnoringModifiers ?? "")
+            ?? specialKeyCode(for: event) else { return }
+        bridge.pressKey(code, down: false)
+    }
+
+    private func specialKeyCode(for event: NSEvent) -> Int32? {
+        switch event.specialKey {
+        case .some(.delete), .some(.backspace): return KeyMapping.code(forSpecialKey: .delete)
+        case .some(.upArrow): return KeyMapping.code(forSpecialKey: .upArrow)
+        case .some(.downArrow): return KeyMapping.code(forSpecialKey: .downArrow)
+        case .some(.leftArrow): return KeyMapping.code(forSpecialKey: .leftArrow)
+        case .some(.rightArrow): return KeyMapping.code(forSpecialKey: .rightArrow)
+        default: return nil
+        }
+    }
+
+    private func convertToTopLeft(_ windowPoint: NSPoint) -> NSPoint {
+        let p = convert(windowPoint, from: nil)
+        return NSPoint(x: p.x, y: bounds.height - p.y)
     }
 }
