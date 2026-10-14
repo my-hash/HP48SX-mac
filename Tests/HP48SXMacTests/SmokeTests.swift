@@ -18,7 +18,7 @@ final class SmokeTests: XCTestCase {
             .deletingLastPathComponent() // HP48SXMacTests
             .deletingLastPathComponent() // Tests
             .deletingLastPathComponent() // repo root
-            .appendingPathComponent("Resources")
+            .appendingPathComponent("Sources/HP48SXMac/Resources")
         for name in ["rom", "ram", "hp48"] {
             let src = resourcesDir.appendingPathComponent(name)
             try fm.copyItem(at: src, to: dir.appendingPathComponent(name))
