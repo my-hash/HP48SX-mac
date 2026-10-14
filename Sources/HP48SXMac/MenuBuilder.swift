@@ -81,6 +81,8 @@ final class MenuBuilder {
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "Preferences…", action: #selector(AppDelegate.showPreferences), keyEquivalent: ",")
         appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide 48SX", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit 48SX", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
@@ -97,6 +99,19 @@ final class MenuBuilder {
         calcMenu.addItem(withTitle: "Restore Backup…", action: #selector(AppDelegate.restoreBackupZip), keyEquivalent: "")
         calcMenuItem.submenu = calcMenu
         mainMenu.addItem(calcMenuItem)
+
+        // Standard Mac window controls -- previously missing entirely, so
+        // Cmd+W/Cmd+M didn't work and there was no Window menu for macOS
+        // to list open windows in.
+        let windowMenuItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowMenuItem.submenu = windowMenu
+        mainMenu.addItem(windowMenuItem)
+        NSApp.windowsMenu = windowMenu
 
         return mainMenu
     }

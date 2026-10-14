@@ -62,4 +62,25 @@ final class PortCardTests: XCTestCase {
         let S_IWGRP: UInt16 = 0o020
         XCTAssertNotEqual(mode & S_IWGRP, 0, "port1 needs the group-write bit set or init.c treats it as read-only ROM, not RAM")
     }
+
+    func testCurrentSizeKBReflectsWhatsActuallyOnDisk() throws {
+        // Deferred-minor finding: Preferences' port popups were seeded
+        // once from UserDefaults at first open and never resynced, so
+        // after Restore Checkpoint/Full Reset/Restore Backup changed the
+        // real port1/port2 files, reopening Preferences still showed
+        // the stale prior selection. Reading the real file is the fix;
+        // this is the pure disk-truth check that drives it.
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dir) }
+
+        XCTAssertEqual(PortCardManager.currentSizeKB(forPort: 1, configDir: dir), 0, "no file on disk means no card")
+
+        try PortCardManager.setSize(128, forPort: 1, configDir: dir)
+        XCTAssertEqual(PortCardManager.currentSizeKB(forPort: 1, configDir: dir), 128)
+
+        try PortCardManager.setSize(0, forPort: 1, configDir: dir)
+        XCTAssertEqual(PortCardManager.currentSizeKB(forPort: 1, configDir: dir), 0, "deleting the card must be reflected immediately, not just in a cache")
+    }
 }
