@@ -55,6 +55,69 @@ final class BackupZipTests: XCTestCase {
 }
 
 extension BackupZipTests {
+    func testSavingASecondTimeWithFewerMembersDropsTheStaleOnes() throws {
+        // Deferred-minor finding: /usr/bin/zip -j UPDATES an existing
+        // archive rather than replacing it, so a member present in an
+        // earlier save (e.g. port1) survived a later save where that
+        // member no longer exists on disk -- the "backup" silently kept
+        // restoring a stale port1 the user had since deleted.
+        let fm = FileManager.default
+        let configDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: configDir, withIntermediateDirectories: true)
+        try "romdata".data(using: .utf8)!.write(to: configDir.appendingPathComponent("rom"))
+        try "ramdata".data(using: .utf8)!.write(to: configDir.appendingPathComponent("ram"))
+        try "hp48data".data(using: .utf8)!.write(to: configDir.appendingPathComponent("hp48"))
+        try "port1data".data(using: .utf8)!.write(to: configDir.appendingPathComponent("port1"))
+
+        let zipPath = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".zip")
+        try BackupZip.save(configDir: configDir, to: zipPath) // port1 present this time
+
+        try fm.removeItem(at: configDir.appendingPathComponent("port1")) // user deletes the card
+        try BackupZip.save(configDir: configDir, to: zipPath) // re-save without it
+
+        let restoreDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: restoreDir, withIntermediateDirectories: true)
+        try BackupZip.restore(from: zipPath, into: restoreDir)
+
+        XCTAssertFalse(fm.fileExists(atPath: restoreDir.appendingPathComponent("port1").path), "the second save should not have resurrected a member that's no longer present on disk")
+
+        try? fm.removeItem(at: configDir)
+        try? fm.removeItem(at: zipPath)
+        try? fm.removeItem(at: restoreDir)
+    }
+
+    func testRestoreOnlyExtractsRecognizedMembersNotArbitraryZipContents() throws {
+        // Deferred-minor finding: restore extracted EVERY member in the
+        // zip, not just the 5 recognized names -- a zip (however it got
+        // built) containing extra files would spray them into configDir.
+        let fm = FileManager.default
+        let configDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: configDir, withIntermediateDirectories: true)
+        try "romdata".data(using: .utf8)!.write(to: configDir.appendingPathComponent("rom"))
+        try "ramdata".data(using: .utf8)!.write(to: configDir.appendingPathComponent("ram"))
+        try "hp48data".data(using: .utf8)!.write(to: configDir.appendingPathComponent("hp48"))
+        try "unexpected".data(using: .utf8)!.write(to: configDir.appendingPathComponent("notes.txt"))
+
+        let zipPath = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".zip")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        process.currentDirectoryURL = configDir
+        process.arguments = ["-j", zipPath.path, "rom", "ram", "hp48", "notes.txt"]
+        try process.run()
+        process.waitUntilExit()
+
+        let restoreDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: restoreDir, withIntermediateDirectories: true)
+        try BackupZip.restore(from: zipPath, into: restoreDir)
+
+        XCTAssertTrue(fm.fileExists(atPath: restoreDir.appendingPathComponent("rom").path))
+        XCTAssertFalse(fm.fileExists(atPath: restoreDir.appendingPathComponent("notes.txt").path), "restore must only extract the 5 recognized members, not everything the zip happens to contain")
+
+        try? fm.removeItem(at: configDir)
+        try? fm.removeItem(at: zipPath)
+        try? fm.removeItem(at: restoreDir)
+    }
+
     func testFullResetStopsEmulatorBeforeTouchingFiles() throws {
         let fm = FileManager.default
         let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
