@@ -17,6 +17,12 @@ final class EmulatorBridge {
     private var pollRunning = false
     private let frameLock = NSLock()
     private var frame: (screen: [UInt16], annunciators: [Bool])?
+    private let emulateThreadFinished = DispatchSemaphore(value: 0)
+
+    /// Test-only: whether the most recent stop() actually observed the
+    /// emulate thread finish (vs. timing out and returning anyway). nil
+    /// before any stop() call.
+    private(set) var lastStopObservedThreadFinished: Bool?
 
     /// Counts how many times the outer repeat-while loop has called
     /// debug() -- i.e. how many times emulate()/emulate_debug() has
@@ -92,6 +98,7 @@ final class EmulatorBridge {
                     self.debugLoopIterationsLock.unlock()
                 }
             } while exit_state != 0
+            self?.emulateThreadFinished.signal()
         }
         emuThread.name = "HP48SXMac.emulate"
         emuThread.start()
@@ -113,11 +120,18 @@ final class EmulatorBridge {
         guard emulateThread != nil else { return }
         exit_state = 0
         pollRunning = false
-        // emulate()'s do-while checks exit_state after every instruction,
-        // so this is generous; it just keeps a fresh start() right after
-        // from racing the previous run's tail end (both touch the same C
-        // globals -- there is only one Saturn CPU state per process).
-        Thread.sleep(forTimeInterval: 0.1)
+        // Actually wait for the emulate thread to finish instead of
+        // guessing a fixed sleep: emulate()'s do-while checks exit_state
+        // after every instruction (or at most every ~20ms while idle in
+        // do_shutdown()'s own "while (wake == 0 && exit_state)" loop), so
+        // this normally returns almost immediately: a bounded 2s timeout
+        // is just a safety net against ever blocking forever, in case
+        // something keeps the thread from reaching its exit check at
+        // all. A fresh start() right after stop() returns can then
+        // safely touch the same C globals -- there is only one Saturn
+        // CPU state per process -- without racing the previous run's
+        // tail end.
+        lastStopObservedThreadFinished = emulateThreadFinished.wait(timeout: .now() + 2) == .success
         emulateThread = nil
         pollThread = nil
     }

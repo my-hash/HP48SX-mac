@@ -68,4 +68,30 @@ extension BackupZipTests {
         XCTAssertEqual(ramSize, 32 * 1024)
         try? fm.removeItem(at: dir)
     }
+
+    func testStopActuallyWaitsForTheEmulateThreadToFinish() throws {
+        // Final-review Important finding I5: the test above only proves
+        // the *result* (files end up the right size) is safe, which it
+        // would be even if stop() were a no-op racing a thread that
+        // happens to finish on its own in time. It doesn't prove stop()
+        // itself guarantees the thread is done -- a fixed sleep(0.1)
+        // doesn't guarantee that under load, and gave no way to tell the
+        // difference between "waited and it finished" and "slept and
+        // got lucky". stop() now waits on a semaphore the emulate thread
+        // signals when its loop actually exits, and records whether it
+        // really observed that (vs. timing out) for exactly this check.
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let paths = AppPaths(configDir: dir)
+        try paths.ensureFirstRunAssets()
+        defer { try? fm.removeItem(at: dir) }
+
+        let bridge = EmulatorBridge(paths: paths)
+        bridge.start()
+        Thread.sleep(forTimeInterval: 0.1)
+
+        bridge.stop()
+
+        XCTAssertEqual(bridge.lastStopObservedThreadFinished, true, "stop() should have actually observed the emulate thread finish, not just returned after a fixed delay")
+    }
 }
