@@ -12,6 +12,15 @@ let package = Package(
                     "-Wno-implicit-function-declaration",
                     "-Wno-pointer-sign",
                     "-Wno-return-type",
+                    // actions.c has `#ifdef __OPTIMIZE__ #error ... #endif` --
+                    // the upstream CMakeLists.txt forces -O0 unconditionally,
+                    // in Debug AND Release Android builds, for exactly this
+                    // guard. Match that policy rather than stripping the
+                    // guard: this 1994 interpreter loop relies on something
+                    // that breaks under optimization, and nothing here needs
+                    // the speed (the ROM boots and runs in milliseconds even
+                    // unoptimized).
+                    "-O0",
                 ]),
                 .define("DEBUG", .when(configuration: .debug)),
             ]
