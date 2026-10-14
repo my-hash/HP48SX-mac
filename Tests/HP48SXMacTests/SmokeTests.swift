@@ -25,9 +25,11 @@ final class SmokeTests: XCTestCase {
         }
 
         emu_set_config_dir(dir.path + "/")
-        if init_emulator() == 0 {
-            do_reset()
-        }
+        // init_emulator() always returns 0 regardless of outcome (both its
+        // code paths end `return 0`) -- call it bare, matching upstream;
+        // see EmulatorBridge.start() and StatePersistenceTests for why a
+        // do_reset() fallback here would be actively wrong.
+        _ = init_emulator()
         init_active_stuff()
 
         // emulate()'s own do-while loop (emulate.c) runs continuously --

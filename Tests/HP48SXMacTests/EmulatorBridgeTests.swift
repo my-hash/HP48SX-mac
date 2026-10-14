@@ -70,17 +70,35 @@ final class EmulatorBridgeTests: XCTestCase {
         // AppPathsTests already proves the restore mechanism works in
         // isolation; this proves EmulatorBridge.start() actually wires it
         // in, and prefers the checkpoint over the bundled default.
+        //
+        // Uses a *real* post-boot "hp48" snapshot as the checkpoint
+        // content, not synthetic bytes: an earlier version of this test
+        // wrote arbitrary 0xAB fill as fake "ram" content and then let
+        // EmulatorBridge actually boot the Saturn CPU against it, which
+        // segfaulted (structurally-invalid RAM fed to a running
+        // interpreter, not a bug in the production code under test).
         let fm = FileManager.default
         let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let paths = AppPaths(configDir: dir)
         try paths.ensureFirstRunAssets() // seeds checkpoint/ with the pristine copies
+        let pristineHP48 = try Data(contentsOf: paths.checkpointDir.appendingPathComponent("hp48"))
 
         // Simulate the user having saved a checkpoint after real progress:
-        // overwrite the checkpoint's ram with distinguishable content.
-        let distinctCheckpointRam = Data(repeating: 0xAB, count: 32 * 1024)
-        try distinctCheckpointRam.write(to: paths.checkpointDir.appendingPathComponent("ram"))
+        // boot once, save, and copy that real (valid) post-boot "hp48"
+        // snapshot into checkpoint/ in place of the pristine default.
+        let seedBridge = EmulatorBridge(paths: paths)
+        seedBridge.start()
+        let deadline = Date().addingTimeInterval(2)
+        while seedBridge.latestFrame() == nil, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        seedBridge.save()
+        seedBridge.stop()
+        let postBootHP48 = try Data(contentsOf: dir.appendingPathComponent("hp48"))
+        XCTAssertNotEqual(postBootHP48, pristineHP48, "a real post-boot hp48 snapshot should differ from the pristine bundled one (sanity check for this test's own fixture)")
+        try postBootHP48.write(to: paths.checkpointDir.appendingPathComponent("hp48"))
 
-        try Data().write(to: dir.appendingPathComponent("ram")) // simulate crash corruption
+        try Data().write(to: dir.appendingPathComponent("hp48")) // simulate crash corruption
         XCTAssertFalse(paths.verifyNoZeroLengthFiles())
 
         let bridge = EmulatorBridge(paths: paths)
@@ -88,7 +106,7 @@ final class EmulatorBridgeTests: XCTestCase {
         defer { bridge.stop(); try? fm.removeItem(at: dir) }
 
         XCTAssertTrue(paths.verifyNoZeroLengthFiles(), "start() should have healed the zero-length file")
-        let restoredRam = try Data(contentsOf: dir.appendingPathComponent("ram"))
-        XCTAssertEqual(restoredRam, distinctCheckpointRam, "should restore from the checkpoint, not silently discard it for the bundled default")
+        let restoredHP48 = try Data(contentsOf: dir.appendingPathComponent("hp48"))
+        XCTAssertEqual(restoredHP48, postBootHP48, "should restore from the checkpoint, not silently discard it for the bundled default")
     }
 }

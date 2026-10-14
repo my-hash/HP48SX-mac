@@ -81,3 +81,16 @@ void
 emu_set_config_dir(const char *path) {
 	strcpy(config_dir, path);
 }
+
+/* Test-only: exposes whether a memory controller is in its power-on
+ * "unconfigured" state. do_reset() (actions.c) forces this back to the
+ * power-on default for all 6 controllers; read_files() (init.c), on a
+ * successful load, restores whatever the saved session had configured.
+ * Calling do_reset() unconditionally after init_emulator() -- which
+ * init.c:1806-1826 shows always returns 0, on both its success and
+ * fresh-boot paths -- re-defaults this right after a real restore,
+ * which is how a saved session's stack gets silently discarded. */
+int
+emu_debug_mem_cntl_unconfigured(int index) {
+	return saturn.mem_cntl[index].unconfigured;
+}

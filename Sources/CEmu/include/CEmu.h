@@ -36,4 +36,7 @@ void emu_set_blank_color(unsigned short color);
 void emu_flip_screen(void);
 int  emu_fill_screen_data(unsigned short *out, unsigned char *ann_out);
 
+/* Test-only: see globals.c. */
+int emu_debug_mem_cntl_unconfigured(int index);
+
 #endif

@@ -35,10 +35,15 @@ final class EmulatorBridge {
         }
         try? paths.ensureFirstRunAssets()
         emu_set_config_dir(paths.configDirPath)
-        if init_emulator() == 0 {
-            // Fresh/placeholder state file didn't parse; reset to a known-good state.
-            do_reset()
-        }
+        // init_emulator() (init.c) always returns 0 -- both its
+        // "successfully restored saved state" and "fresh boot" paths end
+        // in `return 0`, so its return value can't signal failure. Call
+        // it bare, matching upstream's own usage (main.c's original
+        // `init_emulator();`, return value discarded). Do NOT follow it
+        // with do_reset() here: that unconditionally re-defaults the
+        // memory controllers, which silently discards a just-restored
+        // saved session (confirmed: a relaunch lost the RPL stack).
+        _ = init_emulator()
         init_active_stuff()
 
         exit_state = 1
