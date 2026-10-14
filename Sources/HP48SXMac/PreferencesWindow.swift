@@ -20,6 +20,13 @@ enum PortCardManager {
             return
         }
         try Data(repeating: 0, count: targetSize).write(to: path)
+        // init.c marks a port's card as writable RAM (vs. read-only ROM)
+        // by checking a specific permission bit on the file itself --
+        // port1 checks S_IWGRP, port2 checks S_IWUSR. Data.write(to:)
+        // creates files at 0644 under the default umask, which already
+        // satisfies S_IWUSR but not S_IWGRP, so port1 would otherwise
+        // load as read-only. 0o664 sets both, covering either port.
+        try fm.setAttributes([.posixPermissions: 0o664], ofItemAtPath: path.path)
     }
 }
 
