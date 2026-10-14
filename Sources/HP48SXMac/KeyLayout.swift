@@ -57,12 +57,23 @@ enum KeyLayout {
         for k in 25..<29 {
             let col = CGFloat((k + 1) % 6)
             let rank = CGFloat((k + 1) / 6)
-            rects[k] = CGRect(x: w / 6 * col, y: startH + keyH * (1 + rank), width: w / 6, height: keyH)
+            // Android: start_h + menu_key_height + regular_key_height*(rank-1)
+            //        = startH + keyH*rank (menu_key_height == regular_key_height
+            //          in this portrait/!land branch). A previous version of
+            //          this file had `keyH * (1 + rank)`, one row too low --
+            //          confirmed by the final review: it pushed keys 25-28
+            //          into row 5 instead of row 4.
+            rects[k] = CGRect(x: w / 6 * col, y: startH + keyH * rank, width: w / 6, height: keyH)
         }
         for k in 29..<49 {
             let col = CGFloat((k + 1) % 5)
             let rank = CGFloat((k + 1) / 5)
-            rects[k] = CGRect(x: w / 5 * col, y: startH + keyH * (rank + 2), width: w / 5, height: keyH)
+            // Android: start_h + menu_key_height + regular_key_height*(rank-2)
+            //        = startH + keyH*(rank-1). A previous version of this file
+            //          had `keyH * (rank + 2)`, three rows too low -- pushed
+            //          keys 29-48 into rows 8-11 (at or past the window's
+            //          bottom edge) instead of rows 4-7.
+            rects[k] = CGRect(x: w / 5 * col, y: startH + keyH * (rank - 1), width: w / 5, height: keyH)
         }
         return rects
     }()

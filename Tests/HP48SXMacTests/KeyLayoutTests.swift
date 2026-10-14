@@ -47,4 +47,25 @@ final class KeyLayoutTests: XCTestCase {
     func testHitTestReturnsNilOutsideAnyKey() {
         XCTAssertNil(KeyLayout.keyIndex(at: CGPoint(x: -10, y: -10)))
     }
+
+    func testEveryKeyRectLiesWithinTheWindow() {
+        // Final-review Critical finding C1: keys 25-28 and 29-48 used the
+        // wrong row multiplier and rendered one (25-28) to three (29-48)
+        // rows below where they belonged -- rows 9-11 landed at or past
+        // the window's bottom edge entirely, making ON, both shift keys,
+        // the digits, and +-x/ invisible and unclickable. None of the
+        // other tests in this file would have caught it (they only check
+        // a rect's own internal consistency, never its position against
+        // the window bounds).
+        // The last row's bottom edge is mathematically exactly at the
+        // window's bottom edge by design (startH + rowCount*keyH ==
+        // contentSize.height); strict CGRect.contains() can reject that
+        // by a floating-point ulp or two depending on operation order, so
+        // allow a tiny epsilon rather than requiring strict containment.
+        let epsilon: CGFloat = 0.01
+        let bounds = CGRect(origin: .zero, size: KeyLayout.contentSize).insetBy(dx: -epsilon, dy: -epsilon)
+        for (i, rect) in KeyLayout.keyRects.enumerated() {
+            XCTAssertTrue(bounds.contains(rect), "key \(i) at \(rect) is not fully inside the window \(bounds)")
+        }
+    }
 }
