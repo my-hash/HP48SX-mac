@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-./Scripts/make-app-bundle.sh
+./Scripts/sign-and-notarize.sh
 
 APP="build/HP48SXMac.app"
 STAGING="build/dmg-staging"
