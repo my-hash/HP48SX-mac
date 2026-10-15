@@ -5,7 +5,9 @@ A native macOS port of [czodroid/android-48sx](https://github.com/czodroid/andro
 Android port of x48, the 1994 UNIX Saturn-CPU emulator by Eddie C. Dost).
 
 GPL-3.0 licensed (see COPYING). The bundled ROM is free for non-commercial
-use per the upstream project.
+use per the upstream project. The app icon (`Assets/AppIcon.icns`) is
+rasterized from upstream's own `store/img/icon_48sx.svg`, the real
+launcher icon the Android app ships.
 
 ## Build & run
 
