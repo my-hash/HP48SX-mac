@@ -1765,9 +1765,9 @@ debug ()
               cl = (char *) 0;
             }
 	  if (old_line)
-	    cl = strcpy ((char *) malloc (strlen (old_line)), old_line);
+	    cl = strcpy ((char *) malloc (strlen (old_line) + 1), old_line);
 	  else
-	    cl = strcpy ((char *) malloc (strlen ("(null)")), "(null)");
+	    cl = strcpy ((char *) malloc (strlen ("(null)") + 1), "(null)");
 	}
       else
 	{

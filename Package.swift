@@ -12,6 +12,11 @@ let package = Package(
                     "-Wno-implicit-function-declaration",
                     "-Wno-pointer-sign",
                     "-Wno-return-type",
+                    // Saturn's address space is 20-bit; every long/off_t/
+                    // ssize_t value narrowed to int here is a file size,
+                    // offset, or PC value that always fits. Harmless on
+                    // this vendored code, but noisy on every build.
+                    "-Wno-shorten-64-to-32",
                     // actions.c has `#ifdef __OPTIMIZE__ #error ... #endif` --
                     // the upstream CMakeLists.txt forces -O0 unconditionally,
                     // in Debug AND Release Android builds, for exactly this
@@ -21,8 +26,15 @@ let package = Package(
                     // the speed (the ROM boots and runs in milliseconds even
                     // unoptimized).
                     "-O0",
+                    // SwiftPM's Xcode-compatible build system defines
+                    // DEBUG for every target in a debug build regardless
+                    // of any cSettings.define here, which switches on
+                    // every vendored LOGD/LOGE call (originally Android's
+                    // __android_log_print) -- stderr noise on every run,
+                    // not useful without a device log viewer. -U after
+                    // SwiftPM's own -D cancels it for this target only.
+                    "-UDEBUG",
                 ]),
-                .define("DEBUG", .when(configuration: .debug)),
             ]
         ),
         .executableTarget(
